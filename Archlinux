@@ -1,0 +1,185 @@
+一、准备：
+1.1从internet下载arch linux 2023.12.01：
+浏览器搜索： archlinux.org或archLinuxcn.org下载arch Linux。
+1.2虚拟机软件中创建一个虚拟机，名称为：archlinux 2023.12.01：以VMware虚拟机软件为例
+第一步：打开VMware虚拟机软件，点击左上角file，点击新建虚拟机。
+第二步：新界面点击典型，点击下一步
+第三步：选择安装程序光盘映像文件iso，点击浏览选择arch Linux镜像文件iso，点击下一步
+ 
+第四步：选择Linux，版本选择其他Linux5x内核64位。
+第五步：填写虚拟机名称：arch Linux 2023.12.01，选择放置位置，点击下一步。
+1.3配置虚拟机：
+第一步：自定义磁盘容量，点击下一步
+第二步：自定义硬件，建议：处理器数量为4，内存2GB，点击关闭，最后点击完成。
+ 
+第三步：点击“编辑虚拟机设置”—点击“选项“—点击”高级“—选择固件类型”BIOS或者UEFI“—点击”确定“【我这里选择UEFI引导进行操作】
+ 
+二、安装linux（在archlinux20231201上安装arch linux 2023.12.01）
+前期工作：用ping命令检查是否已连接网络，例如：# ping baidu.com 是否有网络扫描数据
+更新时间：#timedatectl set-ntp true 列出磁盘命令：#fdisk -l
+分区方案示例：
+/dev/sda1 : EFI 系统分区，大小为2G，FAT32 格式。这为存储引导加载程序和引导所需的其他文件提供了空间。
+/dev/sda2 ： 交换分区，4GB 大小。交换空间用于将虚拟内存扩展到已安装的物理内存 (RAM) 之外，或用于挂起磁盘支持。
+/dev/sda3 ： Linux分区，剩余可用磁盘空间大小:4G，EXT4格式。这是存储的 Arch Linux 操作系统、文件和其他信息的根 ( / ) 分区。
+1.分区：
+创建EFI系统分区命令：# cfdisk
+选择GPT标签类型点击Enter，然后从底部菜单中选择Free Space并点击New。可以使用Tab浏览选项
+ 
+以MB（2G）为单位键入分区大小，然后按Enter键
+在/dev/sda1分区仍然被选中的情况下，从底部菜单中选择Type并选择EFI System分区类型。现在，已完成EFI系统分区的配置。
+创建交换分区，现在使用相同的过程创建Swap分区，再次选择剩余的Free space 和 并点击 New。
+ 
+以 GB ( 4G ) 为单位键入分区大小，然后按 Enter 键。
+在 /dev/sda2 分区仍然被选中的情况下，从底部菜单中选择 Type 并选择 Linux swap 分区类型。现在，完成了Swap分区的配置。
+创建根分区，最后，需要创建根 ( / ) 分区。再次选择剩余的 Free space 并点击 New 。
+对于 ( / ) 大小，保留默认大小值。这意味着，所有剩余的可用空间。按 Enter 键。
+在 /dev/sda3 分区仍然被选中的情况下，从底部菜单中选择 Type 并选择 Linux filesystem 分区类型。现在，完成了根分区的配置。
+将更改写入磁盘，接下来，需要保存所做的更改。选择 Write从底部菜单和命中Enter，键入yes并按下Enter键。分区结束，选择Quit按下Enter即可
+创建文件系统，现在您已准备好磁盘分区，是时候在其上创建文件系统了。但是让我们首先通过运行来查看分区表摘要： 
+# fdisk -l  检查分区设置命令输出如下：
+  
+该 /dev/sda 磁盘应该有三个分区（ /dev/sda1 ， dev/sda2 ，和 /dev/sda3 ）类似于上面所示的那些。
+2.文件系统：
+2.1格式化分区：创建分区后，必须使用合适的文件系统对每个新创建的分区进行格式化。
+要在根分区上创建一个ext4文件系统，输入命令：
+# mkfs.ext4 /dev/(root_partition)(我设置：根分区“sda3”)
+如果创建了交换分区，使用mkswap(8)将其初始化：
+# mkswap /dev/(swap_partition)(交换空间分区“sda2”)
+如果你要创建一个EFI系统分区，使用mkfs.fat(8)将其格式化为Fat32。警告：只有在分区步骤中创建EFI系统分区时才需要格式化。如果这个磁盘上已经有一个EFI系统分区了，将它重新格式化会破坏其他已安装操作系统的引导加载程序。
+确认有无分区或格式错误输入命令：# fdisk -l 
+# mkfs.fat -F 32 /dev/(efi_system_partition)(我设置的：EFI系统分区“sda1”)
+  
+2.2挂载分区：
+将根磁盘卷挂载到/mnt，例如：
+# mount /dev/(root_partition)(根分区“sda3”) /mnt
+挂载EFI系统分区：
+# mount –-mkdir /dev/(efi_ system_partitionEFI系统分区“sda1”) /mnt/boot
+交换空间卷分区：
+# swapon /dev/swap_partition(交换空间分区“sda2”)
+ 
+5.基本系统:
+5.1安装系统：
+更换国内镜像源：Arch Linux 的优势在于可以自由选择系统的每个部分，安装之前要先更换软件镜像源，使用以下命令编辑源列表： 
+# nano /etc/pacman.d/mirrorlist 
+在第一行加入清华大学软件源（也可以选择中科大，网易等其他镜像源）：
+Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/$repo/os/$arch
+（刷新软件包列表：# pacman -Syy
+重新安装archlinux-keyring包：
+# pacman -S archlinux-keyring）
+使用以下指令安装基本系统：
+# pacstrap /mnt base base-devel linux linux-firmware linux-headers 
+base和base-devel包组内含一套基本的系统软件，必须安装，linux是内核，linux-firmware是一些驱动，linux-headers是内核头文件，/mnt是系统盘挂载点。关于内核选择，可以到archlinux官网查看。
+3.微码：可以安装好后安装：（注：intel和amd不同）
+# pacman -S amd-ucode(amd的cpu安装命令)
+（安装必需软件包可根据需要查看安装命令进行安装）
+5.2配置系统：
+生成fstab文件：通过以下命令生成fstab文件：
+# genfstab -U /mnt >> /mnt/etc/fstab
+Chroot到新安装的系统：通过以下命令chroot到新安装的系统：
+# arch-chroot /mnt
+  
+设置时区：通过以下命令：
+# ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+运行：# hwclock –-systohc命令进行对准时间
+安装文本编译器，也可以在安装必须软件包过程中安装：
+# pacman -S nano （下载vim编译器也可以）。不过下载前最好执行：# pacman -Sy
+区域和本地化设置：
+编辑locale.gen和locale.conf:
+# nano /etc/locale.gen （vim也可以）
+ 
+
+运行：# locale-gen
+编辑：# nano /etc/locale.conf
+输入：LANG=en_US.UTF-8 （ctrl+o保存，ctrl+x退出）
+   
+编辑主机名： 
+# nano /etc/hostname  随便写喜欢的名字，要记住
+ 
+设置root密码：(注：设置密码时不会显示)
+# passwd root
+ 
+新建用户：# useradd -m 你的用户名（自己取）记住用户名
+设置用户密码：# passwd 你的用户名 （注：密码设置不会显示，必须要记住密码）
+输入命令进入etc：# cd /etc 
+输入命令：# nano sudoers,在root的下一行写上 ：你的用户名 ALL=(ALL)ALL
+（如果想无密码 sudo 就把下面的 NOPASSWD: ALL 一行也取消注释）
+ 
+进行启动设置，-Sy更新一下：
+# pacman -Sy 
+输入命令：# pacman -S grub efibootmgr os-prober如果是双系统还要挂载其他系统的分区，安装os-prober
+编辑grub配置文件：
+# nano /etc/default/grub
+去掉最后一行前面的#，编辑器选择vim也可以
+  
+6.bootloader:
+安装GRUB输入命令：
+# grub-install –-target=x86_64-efi –-efi-directory=/boot（或不加/） –-bootloader-id=GRUB
+生成grub配置文件命令：
+# grub-mkconfig -o /boot/grub/grub.cfg
+4.设置网络命令：
+# pacman -S networkmanager
+开机自启命令：
+# systemctl enable NetworkManager
+
+三、配置服务：
+1.	启动系统：
+# exit离开系统，# reboot重启重启后输入用户root，密码为你设置的密码
+进入界面后输入：# ping baidu.com检查网络连接，ctrl+c停止扫描。之后输入：# pacman -Sy更新一下库
+1)安装KDE图形界面：
+# pacman -S sddm xorg plasma console kate filelight dolphin ark rar zip sudo
+2)安装Gnome图形界面：
+# pacman -S gnome gnome-tweaks gnome-extra gdm
+开机启动gdm界面：
+# systemctl enable gdm
+安装、启动ssh服务器：
+接下来，从官方 Arch Linux 存储库下载 Open SSH 服务器，这将为 Arch Linux 系统安装 Secure Shell。输入以下命令：
+# sudo pacman -S openssh  然后，按键盘上的 y 键并按 Enter 键。应根据提示确认安装。
+安装 Open SSH 服务器后，现在可以在 Open SSH 运行时使用 Secure Shell。首先，通过输入以下内容确保 Open SSH 在后台运行：
+ # sudo systemctl status sshd
+如果 Open SSH 服务器未运行，终端应显示“inactive”。如果是这种情况，可以通过输入以下命令来运行 Open SSH：
+ # sudo systemctl start sshd
+然后，通过再次输入以下内容来确保它是否正在运行：
+ # sudo systemctl status sshd
+如果 Open SSH 正在运行，提示符将以绿色显示“active”。
+重新启动时自动启动ssh服务器：
+要在系统重新启动时自动启动 SSH 服务器，可以输入以下代码：
+ # sudo systemctl enable sshd
+加入服务器获取ip地址：请运行以下命令，将显示 IP 地址：
+ # ip addr
+要建立连接，请使用以下命令语法输入另一台计算机的用户凭据和 SSH 服务器的 IP 地址：
+# ssh USERNAME@IP_ADDRESS
+然后，输入“yes”并按 Enter 键。
+输入 Open SSH 服务器的用户凭据并按 Enter 键。完成后，您的计算机最终应该可以通过 SSH 安全协议连接到另一台计算机。
+3.安装ssh客户端：
+选择ssh客户端并下载（我选择的是winscp）到某个客户端官网进行下载即可，例如：putty，hyper，terminus。
+4.制作网页index.html：
+可运用VScode进行代码编辑index.html静态网页，可输入以下代码运行：<!DOCTYPE html>制作网页
+ 
+5. ssh客户端连接ssh服务器：
+以我安装的winscp客户端为例：输入主机名和用户名，密码登录即可。
+ 
+
+6，安装web服务器：(以我安装的nginx为例)
+输入命令：# sudo pacman -S nginx
+
+7. 启动web服务器(nginx):
+输入命令：# sudo systemctl start nginx
+系统启动时自动启动nginx：
+输入命令：# sudo systemctl enable nginx
+（注意：要记住nginx下载的文件地址）
+8，上传index.html到web根目录：
+首先登录root状态：然后编辑sshd配置文件：
+# sudo nano /etc/ssh/sshd_config
+ 
+去掉（passwdAuthentication）前的#，并在后面添加yes
+ 
+（在Allow行添加：AllowUsers arch(arch为“root用户”)）
+ 
+更新ssh服务器配置：保存更新后，使用以下命令重新启动ssh服务：
+# sudo systemctl restart sshd
+若检查ssh状态报错：(检查Windows端防火墙规则，允许ssh流量通过)
+ 
+打开winscp连接linux，找到nginx的文件地址。例如：如下图传到nginx服务器上，不要传输“+1（1）和+1”文件，只传输下图的中的几个文件。 
+ 
+9，浏览器打开web服务器上的index.html
+通过第八步上传完目录后，打开浏览器输入ip地址，出现网页，点击+1即可。 
